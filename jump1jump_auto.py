@@ -24,7 +24,8 @@ class J1J:
             if not os.path.isdir(self.screen_dir):
                 os.mkdir(self.screen_dir)
         self.display_score = bool(kwargs['dest_score'])
-        self.end_score = kwargs['dest_score']   
+        self.end_score = kwargs['dest_score']
+        #得分位置的x坐标
         self.score_position = [45,125,205,285,365]
         if self.display_score:
             from keras.models import load_model
@@ -33,13 +34,13 @@ class J1J:
     def __call__(self):
         while True:
             self.pull_screenshot()
-            self.read_img()            
+            self.read_img()
             if self.is_over():
                 print('本局已结束，请手动开始游戏，然后再重新运行本脚本！')
                 break
             if self.display_score:
-                self.cur_score()             
-                if self.now_sc < self.end_score:                
+                self.cur_score()
+                if self.now_sc < self.end_score:
                     print('当前分数{}，还差{}分达到目标～'.format(self.now_sc,self.end_score-self.now_sc))
                     self.handle_pic()
                 else:
@@ -47,28 +48,45 @@ class J1J:
                     self.distance = random.randint(500,1000)
             else:
                 self.handle_pic()
-            self.jump()                
+            self.jump()
 
     def pull_screenshot(self):
+        “”“
+        截图后传回电脑
+        ”“”
         os.system('adb shell screencap -p /sdcard/ss.png')
         os.system('adb pull /sdcard/ss.png . >{}'.format(os.devnull))
         if self.save_screenshot:
             os.system("cp ss.png {}".format(os.path.join(self.screen_dir,'{}.png'.format(self.screen_name()))))
 
     def jump(self):
-        x,y = random.randint(300,350),random.randint(400,430)
+        “”“
+        跳跃
+        ”“”
+        #随机产生触屏位置的x,y坐标
+        x,y = random.randint(200,650),random.randint(200,630)
         press_time = int(self.distance * 1.365)
         cmd = f'adb shell input swipe {x} {y} {x} {y} {press_time}'
         os.system(cmd)
-        time.sleep(round(random.random()*1.5 +2,2))
+        #随机等待1.8-3.4秒，防ban
+        time.sleep(round(random.random()*1.6 + 1.8,3))
 
     def read_img(self):
+        “”“
+        读取图像，并转换为RGB模式
+        ”“”
         self.img = np.array(Image.open('ss.png').convert('RGB'))
-        
-    def is_over(self):        
-        return np.sqrt(np.square(self.img - np.array([50,40,30])).sum(axis=2)).mean().mean() < 50
-    
+
+    def is_over(self):
+        “”“
+        判断是否已结束游戏
+        ”“”
+        return np.sqrt(np.square(self.img - np.array([50,40,30])).sum(axis=2)).mean().mean() < 90
+
     def cur_score(self):
+        “”“
+        加载模型，识别当前得分
+        ”“”
         single_score = []
         im_score = self.img[200:300,70:450,:]
         for i,(x1,x2) in enumerate(zip(self.score_position[:-1],self.score_position[1:])):
@@ -78,6 +96,9 @@ class J1J:
         self.now_sc = int(''.join([str(sc) if sc !=10 else str(0) for sc in single_score]))
 
     def handle_pic(self):
+        “”“
+        处理图片，找到棋子和目标点的坐标计算距离
+        ”“”
         img_partial1 = self.img[500:1500].astype(int)
         left_up_color = img_partial1[0,0,:]
         person_bottom_color = np.array([ 54,  60, 102])

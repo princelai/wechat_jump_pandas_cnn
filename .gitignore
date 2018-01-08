@@ -1,2 +1,5 @@
 detective.py
 screen/
+*.png
+*.jpeg
+*.jpg
